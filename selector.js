@@ -1,69 +1,69 @@
 #!/usr/bin/env node
-
 const {stdin, stdout, exit} = process;
+
 let j, elems=[];
 isElmBlncd = s =>{
  let i, sig = s.match(/^\s*<!DOCTYPE\s\w+>/) ||exit(1);
  i= sig.index + sig[0].length;
- const stack=[];
+ let stack=[], ind='';
  for (;i < s.length;) {
-  let c = s [i], elmn='', eHead, nextI, t;
+  let c = s[i], nextI, t, elmn;
   if (c == '<') {
-   nextI = s.indexOf( '>', i),
-   eHead = s.substring( i++, ++nextI);
+   nextI = s.indexOf( '>', i);
+   const eHead = s.substring( i++, ++nextI);
    t = eHead.match(/^<(?:([a-z][-\w]*)[^<>]*|(\/[a-z][-\w]*)|!--.*--)>$/) ||exit(1);
-   let str, tag;
+   let
+   str, tag,
+   indEl = ind + eHead;
    if (/^<(?:meta|link|input|img|hr|base)\b|^<!/.test(eHead)) {
-    elems.push( eHead);
+    elems.push( indEl);
     i = nextI
    } else if (tag=t[1]) {
-    if (str = tag.match(/script|style|title|path/)) {
-     i = s.indexOf('</'+str[0]+'>',nextI);
-     if (i < 0) return [false, stack];
-     i += 3 +str[0].length;
+    if( /script|style|title|path/.test(tag) ) {
+     i = s.indexOf('</'+tag+'>',nextI)
+     if (i < 0) return [false, stack+','+tag];
+     i += 3 +tag.length;
      //large text node is put as the first and last a number of char
      if (i-nextI > 799)
-      elmn = eHead + s.substring( nextI, nextI +270) +'.....'+ s.substring( i-240, i);
+      elmn = indEl + s.substring( nextI, nextI +210) +'.....'+ s.substring( i-190, i);
      else
-      elmn = eHead + s.substring( nextI, i);
+      elmn = indEl + s.substring( nextI, i)
     }
-    else if (str=(new RegExp('^[^<]*</'+tag+'>')).exec( s.substring( nextI))) {
+    else if( str =s.substring( nextI).match(/^([^<>]*)<\/([a-z][-\w]*)>/)) {
+     if (tag != str[2]) return [false, stack+','+tag];
      i = nextI + str[0].length;
-     elmn = eHead + str[0]
+     elmn = indEl + (str[1]? '\n  '+ind+str[1] :'') +'\n  '+ind+'</'+str[2]+'>'
     }
-    else if (str = s.substring( nextI).match(
-    /^([^><]+)(<\/([a-z][-\w]*)>|<([a-z][-\w]*)(?:\s+[^>]+)?)?/)) {
-     if (!str[2]) return [false, stack];
-     if (str[3]) {
-      if (str[3] != tag) return [false, stack];
-      elmn = eHead + str[0];
-      i = nextI + str[0].length
-     } else {
-      stack.push( tag);
-      stack.push( str[4]);
-      elmn = eHead + str[1];
-      i = nextI + str[0].length
-     }
+    else if( str = s.substring( nextI).match(
+    /^([^><]+)(<([a-z][-\w]*)(?:\s+[^>]+)?>)?/)) {
+     if (!str[2]) return [false, stack+','+tag];
+     stack.push( tag);
+     stack.push( str[3]);
+     elmn = indEl + str[1];
+     i = nextI + str[0].length;
+     ind += ' '
     }
     else {
      stack.push( tag);
-     elmn = eHead;
-     i = nextI
+     elmn = indEl;
+     i = nextI;
+     ind += ' ';
     }
     elems.push( elmn);
     !j && tag=='div'? j= elems.length+3: null;
    } else {
-    if( t[2] && (!stack.length || '/'+(i=stack.pop()) !== t[2]) )
-      return [false, stack];
-    elems.push( eHead);
-    i = nextI
+    if( t[2] && (!stack.length || '/'+(i=stack.pop()) != t[2]))
+     return [false, stack+','+t[2]];
+    ind = ind.slice(0,-1);
+    elems.push( ind + eHead);
+    i = nextI;
    }
   } else {
    nextI = s.indexOf( '<',i);
    let txL= (tx = s.substring( i,nextI)).length;
    if (!txL || tx.indexOf( '>',i) >=0) return [false, stack]; 
    i = nextI;
-   elems.push( txL >999 ? tx.substring( 0,270)+'.....'+tx.substring( txL-240) :tx)
+   elems.push( txL >799 ? tx.substring( 0,210)+'.....'+tx.substring( txL-190) :tx)
   }
  }
  return [!stack.length, 'the end; missing closing tag']
@@ -120,8 +120,7 @@ slctr = s =>{
 }
 
 let cli = process.argv.slice(2).join(' ');
-if (!cli) cli=
-; //<= put URL default
+if (!cli) cli= //<= URL default
 
 (async ()=>{
  const

@@ -18,8 +18,9 @@ isElmBlncd = s =>{
     i = nextI
    } else if (tag=t[1]) {
     if (str = tag.match(/script|style|title|path/)) {
-     i = s.indexOf('</'+str[0]+'>',nextI) +3 +str[0].length;
+     i = s.indexOf('</'+str[0]+'>',nextI);
      if (i < 0) return [false, stack];
+     i += 3 +str[0].length;
      //large text node is put as the first and last a number of char
      if (i-nextI > 799)
       elmn = eHead + s.substring( nextI, nextI +270) +'.....'+ s.substring( i-240, i);
@@ -178,7 +179,7 @@ lo:
    stdin.resume();
    stdin.once('data', d =>{ r(d[0]) })
   })) {
-   case 115, 83:
+   case 115:
     fs.writeFileSync('a.html', html); break; // s hit //todo
    case 13:
    case 121: break; // Enter or y hit

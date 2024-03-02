@@ -1,20 +1,22 @@
 #!/usr/bin/env node
-const {stdin, stdout, exit} = process;
 
+const {stdin, stdout, exit} = process;
 let j, elems=[];
 isElmBlncd = s =>{
  let i, sig = s.match(/^\s*<!DOCTYPE\s\w+>/) ||exit(1);
  i= sig.index + sig[0].length;
  let stack=[], ind='';
  for (;i < s.length;) {
-  let c = s[i], nextI, t, elmn;
+  let c = s[i], nextI, elmn;
   if (c == '<') {
    nextI = s.indexOf( '>', i);
-   const eHead = s.substring( i++, ++nextI);
-   t = eHead.match(/^<(?:([a-z][-\w]*)[^<>]*|(\/[a-z][-\w]*)|!--.*--)>$/) ||exit(1);
+   const
+   head = s.substring( i++, ++nextI),
+   t = head.match(/^<(?:([a-z][-\w]*)[^<>]*|(\/[a-z][-\w]*)|!--.*--)>$/) ||exit(1),
+   eHead =
+   head.length > 410? head.substring(0,150)+'.....'+head.substring( head.length-130): head;
    let
-   str, tag,
-   indEl = ind + eHead;
+   str, tag, indEl = ind + eHead;
    if (/^<(?:meta|link|input|img|hr|base)\b|^<!/.test(eHead)) {
     elems.push( indEl);
     i = nextI
@@ -72,21 +74,22 @@ isElmBlncd = s =>{
 slctr = s =>{
  s = s.replace(/<\/\w+>$/,'');
  const stack=[], selAtt=[];
- let chiLv=0, nthCh = new Array(33).fill(0);
- for (let tx, nextI, i=0; i < s.length;) {
+ let chiLv=0, nthCh = new Array(33).fill(0),
+ tx, nextI, i=0;
+ for (;i < s.length;) {
   c = s[i];
   if (c == '<') {
    nextI = s.indexOf( '>', ++i);
    let eHead = s.substring( i, nextI++);
    if (!(/^(?:meta|link|input|img|hr|base)\b|^!--.*--$/.test(eHead))) {
     let str,
-    eHd = eHead.match(/^(\/?[a-z][-\w]*)(?:\s+(.+))?/),
-    tag = eHd[1],
-    atrbs = eHd[2];
-    if (tag[0] !== '/') {
-     if( (str = /script|style|title|path/.exec(tag)) != null) {
-      i= s.indexOf( '</'+str[0]+'>', nextI);
-      if (i>0) { i += 3+str[0].length; continue }
+    t = eHead.match(/^(\/?[a-z][-\w]*)(?:\s+(.+))?/),
+    tag = t[1],
+    atrbs = t[2];
+    if (tag[0] != '/') {
+     if( /script|style|title|path/.test(tag) ) {
+      i = s.indexOf( '</'+tag+'>', nextI);
+      if (i>=0) { i += 3+tag.length; continue }
      }
      ++nthCh[ chiLv++];
      stack.push( tag);
@@ -113,14 +116,14 @@ slctr = s =>{
   i = nextI;
   if (i<0) break
  }
- let p='', i=0;
- for (;i < stack.length; i++)
+ let p='';
+ for (i=0; i < stack.length; i++)
   p += stack[i] + selAtt[i] + (nthCh[i] >1 ? ':nth-child('+nthCh[i]+')' :'') + ' > ';
  return p.slice( 0,-3)
 }
 
 let cli = process.argv.slice(2).join(' ');
-if (!cli) cli= //<= URL default
+if (!cli) cli= //<= our URL default
 
 (async ()=>{
  const
@@ -150,8 +153,7 @@ stdout.cursorTo(0);stdout.clearLine();
  if (!ok) {
   console.log('HTML document has inbalanced element at',e.replace(/,/g,' > ')); exit(1)}
 
- let {Select} = await require('enquirer'),
- elmns = [...elems];
+ let {Select} = await require('enquirer'), elmns = [...elems];
 lo:
  while(true) {
   const select = new Select({
@@ -170,7 +172,6 @@ lo:
   await select.run(); stdin.removeAllListeners('keypress');
 
   console.log('\n'+await slctr( elmns.slice( 0,j+1).join('')));
-  elems = [...elmns];
   stdout.write('\nDo on this again or quit with save? (Y/n/s) ');
   switch (
    await new Promise( r=>{
@@ -184,7 +185,8 @@ lo:
    case 121: break; // Enter or y hit
    default: break lo;
   }
-  stdin.removeAllListeners('data');
+  elems = [...elmns];
+  stdin.removeAllListeners('data')
  }
 
  exit()  

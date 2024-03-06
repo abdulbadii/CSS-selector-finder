@@ -140,11 +140,10 @@ if (!cli) cli= //<= our URL default
    if (rsp.status() < 200 || rsp.status() > 206) exit();
    return await page.content()
   } else {
-   fs.readFileSync( cli, 'utf8', (er, ctn)=>{
-   if (er) {
-    console.error( er.code =='ENOENT'? 'File not found': 'Error reading', er)
-    } else { console.log('Retrieving file',cli); return ctn }
-   })
+   try {
+    return fs.readFileSync( cli, 'utf8')
+   } catch (e){
+    console.error( 'Error: '+cli+': ' +(e.code =='ENOENT'? 'File not found': 'Error reading it')) }
   }})();
 
 stdout.cursorTo(0);stdout.clearLine();

@@ -9,7 +9,6 @@ isHTMvalid = s =>{
  const stack=[], r =/<\/?([a-z][-\w]*)[^<>]*>/g;
  i = R.lastIndex;
  for (;i < s.length;) {
-  stRE = s.slice(i);
   r.lastIndex = i;
   const h = r.exec(s);
   if( h && i+h[0].length == r.lastIndex) {// after && is PCRE \G anchor emulation on JS

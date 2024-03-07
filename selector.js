@@ -3,13 +3,16 @@ const {stdin, stdout, exit} = process;
 let j, elems=[];
 
 isHTMvalid = s =>{
- let i, sig = s.match(/^\s*<!DOCTYPE\s\w+>[^<>]*/) ||exit(1);
- i= sig[0].length;
- let stack=[], ind='';
+ let
+ ind='', i, R =/^\s*<!DOCTYPE\s\w+>\s*/g;
+ R.test(s) || exit(1);
+ const stack=[], r =/<\/?([a-z][-\w]*)[^<>]*>/g;
+ i = R.lastIndex;
  for (;i < s.length;) {
-  const stRE = s.slice(i),
-  h = stRE.match(/^<\/?([a-z][-\w]*)[^<>]*>/);
-  if( h) {
+  stRE = s.slice(i);
+  r.lastIndex = i;
+  const h = r.exec(s);
+  if( h && i+h[0].length == r.lastIndex) {// after && is PCRE \G anchor emulation on JS
    const
    head = h[0],
    tag  = h[1];
@@ -18,46 +21,57 @@ isHTMvalid = s =>{
    head.length <410? head: head.slice(0,170)+'.....'+head.slice(-133);
    if (head[1] != '/') {
     let
-    indtE = ind + eHead,
-    cRE; 
+    indtE = ind + eHead;
     if( !tag.search(/^(meta|link|input|img|hr|base)\b/)) {
      elems.push( indtE);
      i += head.length
-    } else if( cRE=/^<(script|style|title|path)\b[^<>]*>(.*?)(<\/\1>|$)/s.exec(stRE) ) {
-     if (cRE[3]) {
-      let l;
-      elems.push( indtE
-      + ( (l=cRE[2].length) <730? cRE[2]: cRE[2].slice(0,210) +'.....'+ cRE[2].slice(-170))
-      + cRE[3] );
-      i += head.length + l + cRE[3].length
-     }
-     else return [false, stack+','+tag]
-    } else if( cRE = stRE.slice( head.length).match(
-      /^(<!--.*?-->|[^<>]*)+(<[a-z][-\w]*[^<>]*>|<\/([a-z][-\w]*)>)/)) {
-      if (cRE[3]) {
-       if (tag != cRE[3]) return [false, stack+','+tag];
-       elems.push( indtE + (cRE[1]? '\n  '+ind+cRE[1] :'') +'\n  '+ind+'</'+cRE[3]+'>');
-       i += head.length + cRE[0].length
-      } else {
-       stack.push( tag);
-       elems.push( indtE + (cRE[1]? '\n  '+ind+cRE[1] :''));
-       i += head.length + cRE[1].length;
-       ind += ' '
+    } else {
+     let c, r =/<(script|style|title|path)\b[^<>]*>(.*?)(<\/\1>|$)/sg;
+     r.lastIndex = i;
+     c=r.exec(s);
+     if( c && i+c[0].length == r.lastIndex) {
+      if (c[3]) {
+       elems.push( indtE
+       + ( c[2].length <730? c[2]: c[2].slice(0,210) +'.....'+ c[2].slice(-170))
+       + c[3] );
+       i= r.lastIndex
       }
-      !j && tag=='div'? j=elems.length: null
+      else return [false, stack+','+tag]
+     } else {
+      let r =/((?:[^<>]+|<!--.*?-->)*)(?:<[a-z][-\w]*[^<>]*>|<\/([a-z][-\w]*)>)/sg;
+      r.lastIndex = (i += head.length);
+      c=r.exec(s);
+      if( c && i+c[0].length == r.lastIndex) {
+       if (c[2]) {
+        if (tag != c[2]) return [false, stack+','+tag];
+        elems.push( indtE + (c[1]? '\n  '+ind+c[1] :'') +'\n  '+ind+'</'+c[2]+'>');
+        i += c[0].length
+       } else {
+        stack.push( tag);
+        elems.push( indtE + (c[1]? '\n  '+ind+c[1] :''));
+        i += c[1].length;
+        ind += ' '
+       }
+       !j && tag=='div'? j=elems.length: null
+      }
+      else return [false, stack+','+tag]
      }
-    else return [false, stack+','+tag]
+    }
    } else {
-    if( !stack.length || stack.pop() != tag) return [false, stack];
+    if( !stack.length || stack.pop() != tag) return [false, stack+''];
     i += head.length;
-    elems.push( (ind= ind.slice(1)) + eHead);
+    elems.push( (ind =ind.slice(1)) + eHead);
    }
-  } else if( cRE = stRE.match(/^(?:[^<>]+|<!--[^<>]*-->)+/s)) {
-   let l;
-   elems.push( ind +( (l=cRE[0].length) <730? cRE[0]: cRE[0].slice(0,190)+'.....'+cRE[0].slice(-170)))
-   i += l
+  } else {
+   let r =/(?:[^<>]+|<!--[^<>]*-->)+/sg, l, c=[];
+   r.lastIndex = i,
+   c = r.exec(s);
+   i += (l = c[0].length);
+   if( c && i==r.lastIndex) {
+    elems.push( ind +( l <730 ? c[0]: c[0].slice(0,190)+'.....'+c[0].slice(-170)))
+   }
+   else return [false, 'inner '+stack]
   }
-  else return [false, 'inner '+stack];
  }
  return [!stack.length, 'the end; missing closing tag']
 }
@@ -115,7 +129,7 @@ slctr = s =>{
 
 let cli = process.argv.slice(2).join(' ');
 if (!cli) {
- cli = ''; // URL default here
+ cli = ''; // URL/file default here
 }
 fs = require('fs');
 
@@ -139,7 +153,7 @@ fs = require('fs');
     return d
    } catch (e){
     console.error('Error: '+cli+': ' +
-     (e.code =='ENOENT'? 'File not found': 'Error reading it'))
+    (e.code =='ENOENT'? 'File not found': 'Error reading it'))
    }
   }})();
 
@@ -156,13 +170,18 @@ lo:
    name: 'element',
    message: 'Use UP/DOWN keys to select an option',
    choices: elems,
-   initial: j
+   initial: j,
+   lazy: true
   });
 
   stdin.on('keypress', (_,k) =>{
    if (k.name == 'up') --j < 0 ? j += elems.length : null;
    else if (k.name == 'down')
-    ++j >= elems.length ? j -= elems.length : null; //select.render()
+    ++j >= elems.length ? j -= elems.length : null;
+   //else if (k.name == 'pageup')
+    //j-=19 < 0 ? j += elems.length : null;
+   //else if (k.name == 'pagedown')
+    //j+=19 >= elems.length ? j -= elems.length : null //select.render()
   });
 
   await select.run(); stdin.removeAllListeners('keypress');

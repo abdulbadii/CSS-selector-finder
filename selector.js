@@ -81,22 +81,26 @@ slctr = s =>{
  let chiLv=0, nthCh = new Array(33).fill(0),
  tx, nexti, i=0;
  for (;i < s.length;) {
-  c = s[i];
-  if (c == '<') {
+  let t;
+  if (s[i] == '<') {
    nexti = s.indexOf( '>', ++i);
-   let eHead = s.substring( i, nexti++);
-   if (!(/^(?:meta|link|input|img|hr|base)\b|^!--.*--$/.test(eHead))) {
-    let str,
-    t = eHead.match(/^(\/?[a-z][-\w]*)(?:\s+(.+))?/),
-    tag = t[1],
-    atrbs = t[2];
+   let eHead = s.substring( i, nexti++),
+   t = eHead.match(/^(\/?[a-z][-\w]*)(?:\s+([^<>]+))?|^!--.*?--$/),
+   tag = t[1],
+   atrbs = t[2];
+   if (tag) { 
     if (tag[0] != '/') {
-     if( /script|style|title|path/.test(tag) ) {
-      i = s.indexOf( '</'+tag+'>', nexti);
-      if (i>=0) { i += 3+tag.length; continue }
+     if( /^(?:meta|link|input|img|hr|base)$/.test(tag)) {
+      if (! /<.+?>/.test( s.substring(nexti)))
+       stack.push( tag)
+     } else {
+      if( /^(?:script|style|title|path)$/.test(tag) ) {
+       i = s.indexOf( '</'+tag+'>', nexti);
+       if (i>=0) { i += 3+tag.length; continue }
+      }
+      stack.push( tag);
+      ++nthCh[ chiLv++]
      }
-     ++nthCh[ chiLv++];
-     stack.push( tag);
      let a=b=c=d='';
      if (atrbs) {
       let att =[], atKVrx = /\b([a-z][-\w]*)=(["'])([^"']*)\2/g;
@@ -114,11 +118,10 @@ slctr = s =>{
      --chiLv;
      nthCh = nthCh.map((_, i)=> i > chiLv? 0: _)
     }
-   }
+    i = nexti;
+   } else i = nexti + t[0].length // comment node
   }
-  else tx = s.slice( i, nexti = s.indexOf( '<', i));
-  i = nexti;
-  if (i<0) break
+  else i = s.indexOf( '<', i); // text
  }
  let p='';
  for (i=0; i < stack.length; i++)
@@ -169,18 +172,13 @@ lo:
    name: 'element',
    message: 'Use UP/DOWN keys to select an option',
    choices: elems,
-   initial: j,
-   lazy: true
+   initial: j
   });
 
   stdin.on('keypress', (_,k) =>{
    if (k.name == 'up') --j < 0 ? j += elems.length : null;
    else if (k.name == 'down')
-    ++j >= elems.length ? j -= elems.length : null;
-   //else if (k.name == 'pageup')
-    //j-=19 < 0 ? j += elems.length : null;
-   //else if (k.name == 'pagedown')
-    //j+=19 >= elems.length ? j -= elems.length : null //select.render()
+    ++j >= elems.length ? j -= elems.length : null
   });
 
   await select.run(); stdin.removeAllListeners('keypress');

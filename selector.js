@@ -11,7 +11,7 @@ isHTMvalid = s =>{
  for (;i < s.length;) {
   r.lastIndex = i;
   const h = r.exec(s);
-  if( h && i+h[0].length == r.lastIndex) {// after && is PCRE \G anchor emulation on JS
+  if( h && i+h[0].length == r.lastIndex) { //&&... is PCRE \G anchor emulation
    const
    head = h[0],
    tag  = h[1];
@@ -62,12 +62,12 @@ isHTMvalid = s =>{
     elems.push( (ind =ind.slice(1)) + eHead);
    }
   } else {
-   let r =/(?:[^<>]+|<!--[^<>]*-->)+/sg, l, c=[];
+   let r =/(?:[^<>]+|<!--[^<>]*-->)+/sg, l, c;  // text, comment
    r.lastIndex = i,
    c = r.exec(s);
    i += (l = c[0].length);
    if( c && i==r.lastIndex) {
-    elems.push( ind +( l <730 ? c[0]: c[0].slice(0,190)+'.....'+c[0].slice(-170)))
+    elems.push( ind + ( l <570 ? c[0]: c[0].slice(0,190)+'.....'+c[0].slice(-170)))
    }
    else return [false, 'inner '+stack]
   }
@@ -75,57 +75,53 @@ isHTMvalid = s =>{
  return [!stack.length, 'the end; missing closing tag']
 }
 
-slctr = s =>{
- s = s.replace(/<\/\w+>$/,'');
+slctr = el =>{
+ if( /^<\//.test( el.slice(-1)) ) el.splice(-1);
+ el[ el.length-1 ].replace(/<\/.+?>$/, '');
  const stack=[], selAtt=[];
- let chiLv=0, nthCh = new Array(33).fill(0),
- tx, nexti, i=0;
- for (;i < s.length;) {
-  let t;
-  if (s[i] == '<') {
-   nexti = s.indexOf( '>', ++i);
-   let eHead = s.substring( i, nexti++),
-   t = eHead.match(/^(\/?[a-z][-\w]*)(?:\s+([^<>]+))?|^!--.*?--$/),
-   tag = t[1],
-   atrbs = t[2];
-   if (tag) { 
-    if (tag[0] != '/') {
-     if( /^(?:meta|link|input|img|hr|base)$/.test(tag)) {
-      if (! /<.+?>/.test( s.substring(nexti)))
-       stack.push( tag)
-     } else {
-      if( /^(?:script|style|title|path)$/.test(tag) ) {
-       i = s.indexOf( '</'+tag+'>', nexti);
-       if (i>=0) { i += 3+tag.length; continue }
-      }
-      stack.push( tag);
-      ++nthCh[ chiLv++]
-     }
-     let a=b=c=d='';
-     if (atrbs) {
-      let att =[], atKVrx = /\b([a-z][-\w]*)=(["'])([^"']*)\2/g;
-      while( (att = atKVrx.exec( atrbs)) != null) {
-       att[1]=='id'? a = '#'+att[3]:
-       att[1]=='class'? b = '.'+att[3].replace(/\s+/g,'.'):
-        c? d += '[' +att[1]+ (att[3]? '='+att[3]+']': ']'):
-        c = '[' +att[1]+ (att[3]? '='+att[3]+']': ']')
-      }
-     }
-     selAtt.push( a+b+c);
-    } else {
-     stack.pop();
-     selAtt.pop();
-     --chiLv;
-     nthCh = nthCh.map((_, i)=> i > chiLv? 0: _)
+ let chiLv=0, nthC = new Array(33).fill(0), t;
+ for ([i,e] of el.entries()) {
+  if( t =e.match(/^\s*<(?:(meta|link|input|img|hr|base)\b|(script|style|title|path)\b|([a-z][-\w]*))(\s+[^<>]+)?>.*?(<\/)?/s)) {
+   let a=b=c=d='';
+   if( t[4]) {
+    let at, r =/\s([a-z][-\w]*)=((["'])([^"']*)\3)/g;
+    while( at = r.exec( t[4])) {
+     at[1] == 'id'? a = '#'+at[4]:
+     at[1] == 'class'?
+      b = '.'+at[4].replace(/\s+/g,'.'):
+      c? d += '[' +at[1]+ (at[2]? '='+at[2]+']': ']'):
+      c = '[' +at[1]+ (at[2]? '='+at[2]+']': ']')
     }
-    i = nexti;
-   } else i = nexti + t[0].length // comment node
+   }
+   if (t[1]) {
+    if( i == el.length-1) {
+     stack.push( t[1]);
+     selAtt.push( a+b+c)
+    }
+    ++nthC[ chiLv]
+   } else if( t[2]) {
+    if( i == el.length-1) {
+     stack.push( t[2]);
+     selAtt.push( a+b+c)
+    }
+    ++nthC[ chiLv]
+   } else {
+    ++nthC[ chiLv++];
+    if( !t[5]) {
+     stack.push( t[3]);
+     selAtt.push( a+b+c)
+    }
+   }
+  } else if( /^\s*<\//.test(e)) {
+    stack.pop();
+    selAtt.pop();
+    --chiLv;
+    nthC = nthC.map((_, i)=> i > chiLv? 0: _)
   }
-  else i = s.indexOf( '<', i); // text
  }
  let p='';
  for (i=0; i < stack.length; i++)
-  p += stack[i] + selAtt[i] + (nthCh[i] >1 ? ':nth-child('+nthCh[i]+')' :'') + ' > ';
+  p += stack[i] + selAtt[i] + (nthC[i] >1? ':nth-child('+nthC[i]+')' :'') + ' > ';
  return p.slice( 0,-3)
 }
 
@@ -133,7 +129,8 @@ let cli = process.argv.slice(2).join(' ');
 if (!cli) {
  cli = ''; // URL/file default here
 }
-fs = require('fs');
+const fs = require('fs'),
+{log, error} = console;
 
 (async ()=>{
  const
@@ -151,21 +148,21 @@ fs = require('fs');
   } else {
    try {
     d = fs.readFileSync( cli, 'utf8');
-    console.log("Found file '"+cli+"'")
+    log("Found: file '"+cli+"'")
     return d
    } catch (e){
-    console.error('Error: '+cli+': ' +
+    error('Error: '+cli+': ' +
     (e.code =='ENOENT'? 'File not found': 'Error reading it'))
    }
   }})();
 
- stdout.cursorTo(0);stdout.clearLine();console.log('Validating its content as HTML...')
+ stdout.cursorTo(0);stdout.clearLine(); log('Validating its content as HTML...')
 
  let [ok,e] = await isHTMvalid( html);
- if (!ok) {
-  console.log('Broken HTML document, suspected at',e.replace(/,/g,' > ')); exit(1)}
+ if( !ok) {
+  log('Invalid HTML document, broken at',e.replace(/,/g,' > ')); exit(1)}
 
- let {Select} = await require('enquirer'), elmns = [...elems];
+ const {Select} = await require('enquirer'), elmns = [...elems];
 lo:
  while(true) {
   const select = new Select({
@@ -183,7 +180,8 @@ lo:
 
   await select.run(); stdin.removeAllListeners('keypress');
 
-  console.log('\n'+await slctr( elmns.slice( 0,j+1).join('')));
+  log('\n'+ await slctr( elmns.slice( 0,j+1)));
+  
   stdout.write('\nDo on this again or quit with save? (Y/n/s) ');
   switch (
    await new Promise( r=>{
@@ -191,7 +189,7 @@ lo:
    stdin.resume();
    stdin.once('data', d =>{ r(d[0]) })
   })) {
-   case 115: fs.writeFileSync('a.html', html); break; // s hit //todo
+   case 115: fs.writeFileSync('a.html', html); break lo; // s hit
    case 13:
    case 121: break; // Enter or y hit
    default: break lo;

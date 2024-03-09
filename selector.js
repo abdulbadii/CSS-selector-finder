@@ -78,39 +78,44 @@ isHTMvalid = s =>{
 slctr = el =>{
  if( /^<\//.test( el.slice(-1)) ) el.splice(-1);
  el[ el.length-1 ].replace(/<\/.+?>$/, '');
- const stack=[], selAtt=[];
+ const stack=[],
+ selAtt=[], selAt=[];
  let chiLv=0, nthC = new Array(33).fill(0), t;
  for ([i,e] of el.entries()) {
   if( t =e.match(/^\s*<(?:(meta|link|input|img|hr|base)\b|(script|style|title|path)\b|([a-z][-\w]*))(\s+[^<>]+)?>.*?(<\/)?/s)) {
-   let a=b=c=d='';
+   let B, k=0, a=b=c=d='';
    if( t[4]) {
-    let at, r =/\s([a-z][-\w]*)=((["'])([^"']*)\3)/g;
-    while( at = r.exec( t[4])) {
-     at[1] == 'id'? a = '#'+at[4]:
-     at[1] == 'class'?
-      b = '.'+at[4].replace(/\s+/g,'.'):
-      c? d += '[' +at[1]+ (at[2]? '='+at[2]+']': ']'):
-      c = '[' +at[1]+ (at[2]? '='+at[2]+']': ']')
+    let at, tm, r =/\s+(([a-z][-\w]*)(=(["'])([^"']*)\4)?)/g;
+    while( at = r.exec( t[4]) ){
+     at[2] == 'id'? a = '#'+at[5] :
+      at[2] == 'class'?
+       b = '.'+at[5].replace(/\s+/g,'.') :
+        c?
+        ( d += '['+ ( at[1].length<min.length?( tm=min,min=at[1],tm): at[1] ) +']', ++k):
+          c = min=at[1]
     }
+    c = '[' +min+ ']'
+    B = b.split('.',1)
    }
    if (t[1]) {
+    ++nthC[ chiLv]
     if( i == el.length-1) {
      stack.push( t[1]);
-     selAtt.push( a+b+c)
+     selAtt.push( a+b+c+( d? d.split(']',1)+']':''));
+     selAt.push( a+ a? B: b? B+c: c+( k>1? d.split(']',1)+']':'') )
     }
-    ++nthC[ chiLv]
    } else if( t[2]) {
+    ++nthC[ chiLv]
     if( i == el.length-1) {
      stack.push( t[2]);
-     selAtt.push( a+b+c)
-    }
-    ++nthC[ chiLv]
+     selAtt.push( a+b+c+( d? d.split(']',1)+']':''));
+     selAt.push( a+ a? B: b? B+c: c+( k>1? d.split(']',1)+']':'') )    }
    } else {
     ++nthC[ chiLv++];
     if( !t[5]) {
      stack.push( t[3]);
-     selAtt.push( a+b+c)
-    }
+     selAtt.push( a+b+c+( d? d.split(']',1)+']':''));
+     selAt.push( a+ a? B: b? B+c: c+( k>1? d.split(']',1)+']':'') )    }
    }
   } else if( /^\s*<\//.test(e)) {
     stack.pop();
@@ -119,10 +124,11 @@ slctr = el =>{
     nthC = nthC.map((_, i)=> i > chiLv? 0: _)
   }
  }
- let p='';
- for (i=0; i < stack.length; i++)
-  p += stack[i] + selAtt[i] + (nthC[i] >1? ':nth-child('+nthC[i]+')' :'') + ' > ';
- return p.slice( 0,-3)
+ let n, p=s='';
+ for (i=0; i < stack.length; i++) {
+  p += stack[i] + selAtt[i] + (n = nthC[i] >1? ':nth-child('+nthC[i]+')' :'') + ' > ';
+  s += stack[i] + selAt[i] + n + ' > ' }
+ return [p.slice( 0,-3), s.slice( 0,-3)]
 }
 
 let cli = process.argv.slice(2).join(' ');
@@ -180,7 +186,8 @@ lo:
 
   await select.run(); stdin.removeAllListeners('keypress');
 
-  log('\n'+ await slctr( elmns.slice( 0,j+1)));
+  let [p,s] = await slctr( elmns.slice( 0,j+1));
+  log( p+'\n\nreduced one:\n\n'+s);
   
   stdout.write('\nDo on this again or quit with save? (Y/n/s) ');
   switch (

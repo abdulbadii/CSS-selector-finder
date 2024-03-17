@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-const {stdin, stdout, exit} = process;
+const {stdin, stdout, exit, argv} = process;
 let j, elems=[];
 
 isHTMvalid = s =>{
@@ -77,13 +77,12 @@ isHTMvalid = s =>{
 
 slctr = el =>{
  if( /^<\//.test( el.slice(-1)) ) el.splice(-1);
- el[ el.length-1 ].replace(/<\/.+?>$/, '');
- const stack=[],
- selAtt=[], selAt=[];
- let chiLv=0, nthC = new Array(33).fill(0), t;
+ const
+ stack=[], selAtt=[], selAt=[];
+ let chiLv=0, nthC = new Array(33).fill(0), t, t12, a,b,B,c,d;
  for ([i,e] of el.entries()) {
-  if( t =e.match(/^\s*<(?:(meta|link|input|img|hr|base)\b|(script|style|title|path)\b|([a-z][-\w]*))(\s+[^<>]+)?>.*?(<\/)?/s)) {
-   let B, k=0, a=b=c=d='';
+  if( t = e.match(/^\s*<(?:(meta|link|input|img|hr|base)\b|(script|style|title|path)\b|([a-z][-\w]*))(\s+[^<>]+)?>(?:.*?(<\/))?/s)) {
+   a=b=B=c=d='';
    if( t[4]) {
     let at, tm, r =/\s+(([a-z][-\w]*)(=(["'])([^"']*)\4)?)/g;
     while( at = r.exec( t[4]) ){
@@ -91,52 +90,45 @@ slctr = el =>{
       at[2] == 'class'?
        b = '.'+at[5].replace(/\s+/g,'.') :
         c?
-        ( d += '['+ ( at[1].length<min.length?( tm=min,min=at[1],tm): at[1] ) +']', ++k):
+         d += '['+ ( at[1].length <min.length ?( tm=min,min=at[1],tm): at[1] ) +']':
           c = min=at[1]
     }
-    c = '[' +min+ ']'
-    B = b.split('.',1)
+    c = '[' +min+ ']';
+    B = b.split('.',1);
    }
-   if (t[1]) {
-    ++nthC[ chiLv]
-    if( i == el.length-1) {
-     stack.push( t[1]);
-     selAtt.push( a+b+c+( d? d.split(']',1)+']':''));
-     selAt.push( a+ a? B: b? B+c: c+( k>1? d.split(']',1)+']':'') )
-    }
-   } else if( t[2]) {
-    ++nthC[ chiLv]
-    if( i == el.length-1) {
-     stack.push( t[2]);
-     selAtt.push( a+b+c+( d? d.split(']',1)+']':''));
-     selAt.push( a+ a? B: b? B+c: c+( k>1? d.split(']',1)+']':'') )    }
-   } else {
-    ++nthC[ chiLv++];
-    if( !t[5]) {
+   if( (t12 = t[1] || t[2]) || t[5] )
+     ++nthC[ chiLv];
+   else {
+     ++nthC[ chiLv++];
      stack.push( t[3]);
      selAtt.push( a+b+c+( d? d.split(']',1)+']':''));
-     selAt.push( a+ a? B: b? B+c: c+( k>1? d.split(']',1)+']':'') )    }
+     selAt.push( a+ (a? B: (b? B + B.split('.',1) + c: c)) )
    }
   } else if( /^\s*<\//.test(e)) {
     stack.pop();
     selAtt.pop();
+    selAt.pop();
     --chiLv;
-    nthC = nthC.map((_, i)=> i > chiLv? 0: _)
+    nthC = nthC.map( (_, i) => i>chiLv ? 0: _)
   }
+ }
+ if( t = t12 || (t[5] && t[3]) ) {
+  stack.push( t);
+  selAtt.push( a+b+c+ ( d? d.split(']',1)+']':'') );
+  selAt.push( a+ (a? B: (b? B + B.split('.',1) + c: c)) )
  }
  let n, p=s='';
  for (i=0; i < stack.length; i++) {
-  p += stack[i] + selAtt[i] + (n = nthC[i] >1? ':nth-child('+nthC[i]+')' :'') + ' > ';
+  p += stack[i] + selAtt[i] + (n = nthC[i] >1 ? ':nth-child('+nthC[i]+')' :'') + ' > ';
   s += stack[i] + selAt[i] + n + ' > ' }
  return [p.slice( 0,-3), s.slice( 0,-3)]
 }
 
-let cli = process.argv.slice(2).join(' ');
+let cli = argv.slice(2).join(' ');
 if (!cli) {
  cli = ''; // URL/file default here
 }
-const fs = require('fs'),
-{log, error} = console;
+const fs = require('fs');
 
 (async ()=>{
  const
@@ -154,19 +146,18 @@ const fs = require('fs'),
   } else {
    try {
     d = fs.readFileSync( cli, 'utf8');
-    log("Found: file '"+cli+"'")
+    console.log("Found: file '"+cli+"'")
     return d
    } catch (e){
-    error('Error: '+cli+': ' +
-    (e.code =='ENOENT'? 'File not found': 'Error reading it'))
+    console.error('Error:',cli+':',(e.code=='ENOENT'? 'File not found': 'Error reading it'))
+    exit(1)
    }
   }})();
-
- stdout.cursorTo(0);stdout.clearLine(); log('Validating its content as HTML...')
+ stdout.cursorTo(0);stdout.clearLine(); console.log('Validating its content as HTML...')
 
  let [ok,e] = await isHTMvalid( html);
  if( !ok) {
-  log('Invalid HTML document, broken at',e.replace(/,/g,' > ')); exit(1)}
+  console.log('Invalid HTML document, broken at',e.replace(/,/g,' > ')); exit(1)}
 
  const {Select} = await require('enquirer'), elmns = [...elems];
 lo:
@@ -187,7 +178,7 @@ lo:
   await select.run(); stdin.removeAllListeners('keypress');
 
   let [p,s] = await slctr( elmns.slice( 0,j+1));
-  log( p+'\n\nreduced one:\n\n'+s);
+  console.log( p+'\n\nA reduced one:\n\n'+s);
   
   stdout.write('\nDo on this again or quit with save? (Y/n/s) ');
   switch (

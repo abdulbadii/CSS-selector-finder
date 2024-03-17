@@ -80,7 +80,7 @@ slctr = el =>{
  const
  stack=[], selAtt=[], selAt=[];
  let chiLv=0, nthC = new Array(33).fill(0), t, t12, a,b,B,c,d;
- for ([i,e] of el.entries()) {
+ for (e of el) {
   if( t = e.match(/^\s*<(?:(meta|link|input|img|hr|base)\b|(script|style|title|path)\b|([a-z][-\w]*))(\s+[^<>]+)?>(?:.*?(<\/))?/s)) {
    a=b=B=c=d='';
    if( t[4]) {

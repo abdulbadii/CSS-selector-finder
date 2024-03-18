@@ -81,7 +81,7 @@ slctr = el =>{
  stack=[], selAtt=[], selAt=[];
  let chiLv=0, nthC = new Array(33).fill(0), t, t12, a,b,B,c,d;
  for (e of el) {
-  if( t = e.match(/^\s*<(?:(meta|link|input|img|hr|base)\b|(script|style|title|path)\b|([a-z][-\w]*))(\s+[^<>]+)?>(.*?<\/)?/s)) {
+  if( t = e.match(/^\s*<(?:(meta|link|input|img|hr|base)\b|(script|style|title|path)\b|([a-z][-\w]*))(\s+[^<>]+)?>(?:.*?<\/(\2\3))?/s)) {
    a=b=B=c=d='';
    if( t[4]) {
     let at, tm, r =/\s+(([a-z][-\w]*)(=(["'])([^"']*)\4)?)/g;
@@ -98,10 +98,12 @@ slctr = el =>{
    if( (t12 = t[1] || t[2]) || t[5] )
      ++nthC[ chiLv];
    else {
-     ++nthC[ chiLv++];
-     stack.push( t[3]);
-     selAtt.push( a+b+c+( d? d.split(']',1)+']':''));
-     selAt.push( a+ (a? B: (b? B + B.split('.',1) + c: c)) )
+    ++nthC[ chiLv++];
+    stack.push( t[3]);
+    selAtt.push( a+b+c+d.split(/(?<=\])\[/,1));
+    selAt.push(
+     t[3].search(/^html|^head|^body/) ?
+     a+ a? B: (b? b.split('.',3).join('.'): c): '')
    }
   } else if( /^\s*<\//.test(e)) {
     stack.pop();
@@ -112,10 +114,12 @@ slctr = el =>{
   }
  }
  let lst;
- if( lst = t12 || (t && t[5] && t[3]) ) {
+ if( lst = t12 || (t && t[5]) ) {
   stack.push( lst);
-  selAtt.push( a+b+c+ ( d? d.split(']',1)+']':'') );
-  selAt.push( a+ (a? B: (b? B + B.split('.',1) + c: c)) )
+  selAtt.push( a+b+c+d.split(/(?<=\])\[/,1));
+  selAt.push(
+   lst.search(/^html|^head|^body/) ?
+   a+ a? B: (b? b.split('.',3).join('.'): c): '')
  }
  let n, p=s='';
  for (i=0; i < stack.length; i++) {
@@ -153,7 +157,6 @@ const fs = require('fs');
     exit(1)
    }
   }})();
-
  stdout.cursorTo(0);stdout.clearLine(); console.log('Validating its content as HTML...')
 
  let [ok,e] = await isHTMvalid( html);

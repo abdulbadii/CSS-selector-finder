@@ -7,13 +7,13 @@ isHTMvalid = s =>{
  ind='', i, R =/^\s*<!DOCTYPE\s\w+>\s*/g;
  R.test(s) || exit(1);
  const stack=[], r =/<\/?([a-z][-\w]*)[^<>]*>/g;
- i = R.lastIndex;
- for (;i < s.length;) {
+ for( i = R.lastIndex; i < s.length;) { // i is pointer walks throughout entire HTML doc.
   r.lastIndex = i;
-  const h = r.exec(s);
-  if( h && i+h[0].length == r.lastIndex) { //&&... is PCRE \G anchor emulation
+  const
+  h = r.exec(s),
+  head = h[0];
+  if( h && i+head.length == r.lastIndex) { //&&... is PCRE \G anchor emulation
    const
-   head = h[0],
    tag  = h[1];
    /*Large atrribute is put as the first/last a number of char, so is such large*/
    eHead =
@@ -27,7 +27,7 @@ isHTMvalid = s =>{
     } else {
      let c, r =/<(script|style|title|path)\b[^<>]*>(.*?)(<\/\1>|$)/sg;
      r.lastIndex = i;
-     c=r.exec(s);
+     c = r.exec(s);
      if( c && i+c[0].length == r.lastIndex) {
       if (c[3]) {
        elems.push( indtE
@@ -39,7 +39,7 @@ isHTMvalid = s =>{
      } else {
       let r =/((?:[^<>]+|<!--.*?-->)*)(?:<[a-z][-\w]*[^<>]*>|<\/([a-z][-\w]*)>)/sg;
       r.lastIndex = (i += head.length);
-      c=r.exec(s);
+      c = r.exec(s);
       if( c && i+c[0].length == r.lastIndex) {
        if (c[2]) {
         if (tag != c[2]) return [false, stack+','+tag];
@@ -81,7 +81,7 @@ slctr = el =>{
  stack=[], selAtt=[], selAt=[];
  let chiLv=0, nthC = new Array(33).fill(0), t, t12, a,b,B,c,d;
  for (e of el) {
-  if( t = e.match(/^\s*<(?:(meta|link|input|img|hr|base)\b|(script|style|title|path)\b|([a-z][-\w]*))(\s+[^<>]+)?>(?:.*?(<\/))?/s)) {
+  if( t = e.match(/^\s*<(?:(meta|link|input|img|hr|base)\b|(script|style|title|path)\b|([a-z][-\w]*))(\s+[^<>]+)?>(.*?<\/)?/s)) {
    a=b=B=c=d='';
    if( t[4]) {
     let at, tm, r =/\s+(([a-z][-\w]*)(=(["'])([^"']*)\4)?)/g;
@@ -89,9 +89,8 @@ slctr = el =>{
      at[2] == 'id'? a = '#'+at[5] :
       at[2] == 'class'?
        b = '.'+at[5].replace(/\s+/g,'.') :
-        c?
-         d += '['+ ( at[1].length <min.length ?( tm=min,min=at[1],tm): at[1] ) +']':
-          c = min=at[1]
+        c? d += '['+ ( at[1].length <min.length ?( tm=min,min=at[1],tm): at[1] ) +']':
+         c = min=at[1]
     }
     c = '[' +min+ ']';
     B = b.split('.',1);
@@ -112,8 +111,9 @@ slctr = el =>{
     nthC = nthC.map( (_, i) => i>chiLv ? 0: _)
   }
  }
- if( t = t12 || (t[5] && t[3]) ) {
-  stack.push( t);
+ let lst;
+ if( lst = t12 || (t && t[5] && t[3]) ) {
+  stack.push( lst);
   selAtt.push( a+b+c+ ( d? d.split(']',1)+']':'') );
   selAt.push( a+ (a? B: (b? B + B.split('.',1) + c: c)) )
  }
@@ -125,8 +125,7 @@ slctr = el =>{
 }
 
 let cli = argv.slice(2).join(' ');
-if (!cli) {
- cli = ''; // URL/file default here
+if (!cli) { cli = ''; // URL/file default here
 }
 const fs = require('fs');
 
@@ -146,13 +145,15 @@ const fs = require('fs');
   } else {
    try {
     d = fs.readFileSync( cli, 'utf8');
-    console.log("Found: file '"+cli+"'")
+    console.log("Found: file '"+cli+"'");
     return d
    } catch (e){
-    console.error('Error:',cli+':',(e.code=='ENOENT'? 'File not found': 'Error reading it'))
+    console.error('Error:',cli+':',(e.code=='ENOENT'? 'File not found':
+    'Error reading it'));
     exit(1)
    }
   }})();
+
  stdout.cursorTo(0);stdout.clearLine(); console.log('Validating its content as HTML...')
 
  let [ok,e] = await isHTMvalid( html);
@@ -178,7 +179,7 @@ lo:
   await select.run(); stdin.removeAllListeners('keypress');
 
   let [p,s] = await slctr( elmns.slice( 0,j+1));
-  console.log( p+'\n\nA reduced one:\n\n'+s);
+  console.log( p+'\n\nReduced one:\n'+s);
   
   stdout.write('\nDo on this again or quit with save? (Y/n/s) ');
   switch (
